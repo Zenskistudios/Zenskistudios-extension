@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Zenski</title>
+<style>
+  :root{
+    --bg:#0a0014; --bg2:#120022; --violet:#8b5cf6; --cyan:#22d3ee;
+    --amber:#fbbf24; --red:#ef4444; --ink:#e9e4f7; --dim:#8a80ad;
+    --mono:'Courier New', ui-monospace, monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink); overflow:hidden; font-family:var(--mono); }
+  #scanlines{
+    position:fixed; inset:0; z-index:3; pointer-events:none; opacity:0;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0.25) 0px, rgba(0,0,0,0.25) 1px, transparent 2px, transparent 4px);
+    mix-blend-mode:overlay;
+  }
+  body.horror #scanlines{ opacity:1; }
+  #lightning{ position:fixed; inset:0; z-index:4; background:#fff; opacity:0; pointer-events:none; }
+  #three-mount{ position:fixed; inset:0; z-index:1; }
+  #hud{
+    position:fixed; inset:0; z-index:5; display:none; pointer-events:none;
+    flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:64px; text-align:center;
+  }
+  #hud.active{ display:flex; }
+  #char-name{ font-size:26px; letter-spacing:3px; text-shadow:0 0 20px currentColor; }
+  #char-song{ font-size:14px; color:var(--dim); margin-top:6px; max-width:520px; font-family:-apple-system,sans-serif; }
+  #countdown{ font-size:44px; margin-top:18px; letter-spacing:3px; color:var(--amber); text-shadow:0 0 18px rgba(251,191,36,0.6); display:none; }
+  #countdown-label{ font-size:11px; color:var(--dim); letter-spacing:2px; margin-top:2px; display:none; }
+  #resume-btn{
+    margin-top:22px; pointer-events:auto; font-size:14px; padding:12px 26px; font-family:var(--mono);
+    background:rgba(34,211,238,0.15); color:var(--ink); border:1px solid var(--cyan); border-radius:6px; cursor:pointer;
+  }
+  #resume-btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  #resume-btn:hover:not(:disabled){ background:rgba(34,211,238,0.3); }
+  #forced-banner{
+    position:fixed; top:26px; left:50%; transform:translateX(-50%); z-index:6; display:none;
+    font-size:11px; letter-spacing:2px; color:var(--red); background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.4); padding:8px 16px; border-radius:20px;
+  }
+  #safety-note{
+    position:fixed; bottom:16px; left:50%; transform:translateX(-50%); z-index:6;
+    font-size:10px; color:var(--dim); font-family:-apple-system,sans-serif; opacity:0.7; display:none;
+  }
+</style>
+</head>
+<body>
+  <div id="scanlines"></div>
+  <div id="lightning"></div>
+  <div id="forced-banner">FORCED REST — STAY A WHILE</div>
+  <div id="three-mount"></div>
+  <div id="hud">
+    <div id="char-name"></div>
+    <div id="char-song"></div>
+    <div id="countdown">05:00</div>
+    <div id="countdown-label">until you can leave</div>
+    <button id="resume-btn" disabled>Resume work</button>
+  </div>
+  <div id="safety-note">Ctrl+Alt+Del is never blocked — use Task Manager if you need to end this immediately.</div>
+
+  <script src="./vendor/three.min.js"></script>
+  <script src="./overlay.js"></script>
+</body>
+</html>

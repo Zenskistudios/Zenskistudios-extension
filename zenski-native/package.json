@@ -1,0 +1,19 @@
+{
+  "name": "zenski-screen-timeout-native",
+  "displayName": "Zenski Screen Timeout — Native",
+  "description": "Windows tray app: forces a real screen-lock rest break with animated 3D characters after idle timeout.",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "postinstall": "node scripts/copy-three.js",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "koffi": "^2.9.0",
+    "three": "0.128.0"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0"
+  }
+}

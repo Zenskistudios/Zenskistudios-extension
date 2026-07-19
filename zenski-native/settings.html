@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Zenski Settings</title>
+<style>
+  :root{
+    --bg:#120022; --violet:#8b5cf6; --cyan:#22d3ee; --amber:#fbbf24; --red:#ef4444;
+    --ink:#e9e4f7; --dim:#8a80ad; --mono:'Courier New', ui-monospace, monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--mono);
+    padding:18px; font-size:12px;
+  }
+  h1{ font-size:14px; letter-spacing:2px; color:var(--cyan); margin:0 0 4px; }
+  #status{ font-size:11px; color:var(--dim); margin-bottom:16px; }
+  #status.on{ color:var(--cyan); }
+  .field{ margin-bottom:14px; }
+  label{ display:block; color:var(--dim); margin-bottom:5px; }
+  select, input[type=number]{
+    width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(139,92,246,0.4);
+    color:var(--ink); border-radius:6px; padding:7px 8px; font-family:var(--mono); font-size:12px;
+  }
+  input[type=range]{ width:100%; }
+  .row{ display:flex; gap:10px; }
+  .row .field{ flex:1; }
+  .check{ display:flex; align-items:center; gap:8px; }
+  button{
+    font-family:var(--mono); font-size:12px; background:rgba(139,92,246,0.15); color:var(--ink);
+    border:1px solid rgba(139,92,246,0.5); border-radius:6px; padding:9px 12px; cursor:pointer; width:100%;
+  }
+  button:hover{ background:rgba(139,92,246,0.3); }
+  button.primary{ background:rgba(34,211,238,0.18); border-color:var(--cyan); margin-bottom:8px; }
+  button.warn{ background:rgba(239,68,68,0.12); border-color:var(--red); }
+  #warning{
+    margin-top:16px; font-size:10.5px; color:var(--amber); line-height:1.5;
+    border-top:1px solid rgba(251,191,36,0.3); padding-top:10px;
+  }
+  #safety{ margin-top:10px; font-size:10.5px; color:var(--dim); line-height:1.5; }
+</style>
+</head>
+<body>
+  <h1>ZENSKI</h1>
+  <div id="status">checking watch state…</div>
+
+  <button id="btn-toggle" class="primary">Start Watching</button>
+  <button id="btn-preview">Preview Character</button>
+
+  <div class="field" style="margin-top:16px">
+    <label>Character</label>
+    <select id="sel-character"></select>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>Idle timeout (min)</label>
+      <input type="number" id="in-timeout" min="1">
+    </div>
+    <div class="field">
+      <label>Forced rest (min, max 20)</label>
+      <input type="number" id="in-forced" min="0" max="20">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Volume (<span id="vol-val">70</span>%)</label>
+    <input type="range" id="in-volume" min="0" max="100">
+  </div>
+
+  <div class="field check">
+    <input type="checkbox" id="in-audio">
+    <label for="in-audio" style="margin:0">Audio enabled</label>
+  </div>
+
+  <div class="field check">
+    <input type="checkbox" id="in-block">
+    <label for="in-block" style="margin:0">Block keyboard/mouse during forced rest</label>
+  </div>
+
+  <button id="btn-save" class="primary">Save Settings</button>
+
+  <div id="warning">
+    ⚠ When input blocking is on, your keyboard and mouse are locked system-wide
+    for the forced rest duration. Test with it OFF first if you're unsure.
+  </div>
+  <div id="safety">
+    Ctrl+Alt+Del and Ctrl+Shift+Esc are reserved by Windows and are never
+    blocked by this app — use Task Manager to end it instantly if needed.
+  </div>
+
+<script>
+  const CHARACTERS = [
+    ['cat','🐱 Whiskers the Cat'], ['dog','🐶 Biscuit the Dog'], ['rabbit','🐰 Bun-Bun the Rabbit'],
+    ['demogorgon','👹 Demogorgon'], ['vecna','🧠 Vecna'], ['mindflayer','🕷️ Mind Flayer'],
+    ['demodogs','🐕 Demo-dogs'], ['eleven','⚡ Eleven']
+  ];
+  const selCharacter = document.getElementById('sel-character');
+  CHARACTERS.forEach(([val,label])=>{
+    const opt = document.createElement('option'); opt.value = val; opt.textContent = label;
+    selCharacter.appendChild(opt);
+  });
+
+  const $ = id => document.getElementById(id);
+
+  async function refreshStatus(){
+    const on = await window.zenskiSettings.watchState();
+    $('status').textContent = on ? 'watching for idle…' : 'stopped';
+    $('status').className = on ? 'on' : '';
+    $('btn-toggle').textContent = on ? 'Stop Watching' : 'Start Watching';
+  }
+
+  async function load(){
+    const s = await window.zenskiSettings.get();
+    selCharacter.value = s.character;
+    $('in-timeout').value = s.timeoutMinutes;
+    $('in-forced').value = s.forcedRestMinutes;
+    $('in-volume').value = s.volume;
+    $('vol-val').textContent = s.volume;
+    $('in-audio').checked = s.audioEnabled;
+    $('in-block').checked = s.blockInput;
+    await refreshStatus();
+  }
+
+  $('in-volume').oninput = e => $('vol-val').textContent = e.target.value;
+
+  $('btn-toggle').onclick = async () => { await window.zenskiSettings.toggleWatch(); await refreshStatus(); };
+  $('btn-preview').onclick = () => window.zenskiSettings.preview();
+
+  $('btn-save').onclick = async () => {
+    await window.zenskiSettings.save({
+      character: selCharacter.value,
+      timeoutMinutes: parseFloat($('in-timeout').value) || 120,
+      forcedRestMinutes: parseFloat($('in-forced').value) || 0,
+      volume: parseInt($('in-volume').value, 10),
+      audioEnabled: $('in-audio').checked,
+      blockInput: $('in-block').checked
+    });
+    $('btn-save').textContent = 'Saved ✓';
+    setTimeout(() => $('btn-save').textContent = 'Save Settings', 1200);
+  };
+
+  load();
+</script>
+</body>
+</html>
