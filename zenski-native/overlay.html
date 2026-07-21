@@ -18,7 +18,11 @@
   }
   body.horror #scanlines{ opacity:1; }
   #lightning{ position:fixed; inset:0; z-index:4; background:#fff; opacity:0; pointer-events:none; }
-  #three-mount{ position:fixed; inset:0; z-index:1; }
+  #char-gif{
+    position:fixed; inset:0; margin:auto; z-index:1;
+    max-width:70vmin; max-height:70vmin; object-fit:contain;
+    filter: drop-shadow(0 0 30px rgba(139,92,246,0.35));
+  }
   #hud{
     position:fixed; inset:0; z-index:5; display:none; pointer-events:none;
     flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:64px; text-align:center;
@@ -49,7 +53,7 @@
   <div id="scanlines"></div>
   <div id="lightning"></div>
   <div id="forced-banner">FORCED REST — STAY A WHILE</div>
-  <div id="three-mount"></div>
+  <img id="char-gif" alt="">
   <div id="hud">
     <div id="char-name"></div>
     <div id="char-song"></div>
@@ -59,7 +63,7 @@
   </div>
   <div id="safety-note">Ctrl+Alt+Del is never blocked — use Task Manager if you need to end this immediately.</div>
 
-  <script src="./vendor/three.min.js"></script>
+  <script src="./renderer/vendor/three.min.js"></script>
   <script src="./overlay.js"></script>
 </body>
 </html>
