@@ -88,15 +88,19 @@ function persistSettings() {
   }
 }
 function sanitizeSettings(s) {
+  const timeout = Number(s.timeoutMinutes);
+  const forced = Number(s.forcedRestMinutes);
+  const volume = Number(s.volume);
+
   return {
     character: typeof s.character === 'string' ? s.character : DEFAULT_SETTINGS.character,
-    timeoutMinutes: Math.max(1, Number(s.timeoutMinutes) || DEFAULT_SETTINGS.timeoutMinutes),
+    timeoutMinutes: Number.isFinite(timeout) && timeout > 0 ? Math.floor(timeout) : DEFAULT_SETTINGS.timeoutMinutes,
     // Capped at 20 minutes — this is a wellness nudge, not a punishment.
     // Raise the cap yourself in this file if you deliberately want longer.
-    forcedRestMinutes: Math.min(20, Math.max(0, Number(s.forcedRestMinutes) ?? DEFAULT_SETTINGS.forcedRestMinutes)),
+    forcedRestMinutes: Number.isFinite(forced) && forced >= 0 ? Math.min(20, Math.max(0, Math.floor(forced))) : DEFAULT_SETTINGS.forcedRestMinutes,
     blockInput: !!s.blockInput,
     audioEnabled: !!s.audioEnabled,
-    volume: Math.min(100, Math.max(0, Number(s.volume) ?? DEFAULT_SETTINGS.volume))
+    volume: Number.isFinite(volume) ? Math.min(100, Math.max(0, Math.floor(volume))) : DEFAULT_SETTINGS.volume
   };
 }
 
@@ -268,8 +272,12 @@ function openSettingsWindow() {
       nodeIntegration: false
     }
   });
-  settingsWindow.setMenuBarVisibility(false);
-  settingsWindow.loadFile(path.join(__dirname, 'settings.html'));
+  if (typeof settingsWindow.setMenuBarVisibility === 'function') {
+    settingsWindow.setMenuBarVisibility(false);
+  }
+  if (typeof settingsWindow.loadFile === 'function') {
+    settingsWindow.loadFile(path.join(__dirname, 'settings.html'));
+  }
 }
 
 // ---------------------------------------------------------------
@@ -278,15 +286,19 @@ function openSettingsWindow() {
 function getTrayIcon() {
   const iconPath = path.join(__dirname, 'icon.ico');
   if (fs.existsSync(iconPath)) return iconPath;
-  // Tiny embedded fallback icon so Tray construction never fails
-  // if you haven't dropped your own icon.ico into the project root yet.
+
   const fallbackPng =
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAI0lEQVR4AWNgGAWjYBSMglEwCkbBKBgFo2AUjIJRMApGwSgYBWMFAJs8AV9Fh8N3AAAAAElFTkSuQmCC';
-  return nativeImage.createFromDataURL(fallbackPng);
+  const image = nativeImage.createFromDataURL(fallbackPng);
+  if (image && typeof image.resize === 'function') {
+    return image.resize({ width: 16, height: 16 });
+  }
+  return image;
 }
 
 function refreshTray() {
   if (!tray) return;
+  if (typeof tray.setContextMenu !== 'function' || typeof tray.setToolTip !== 'function') return;
   const menu = Menu.buildFromTemplate([
     {
       label: watching ? 'Stop Watching' : 'Start Watching',
@@ -323,25 +335,38 @@ function refreshTray() {
 // ---------------------------------------------------------------
 // App lifecycle
 // ---------------------------------------------------------------
-app.whenReady().then(() => {
+function initializeApp() {
   loadSettings();
   tray = new Tray(getTrayIcon());
   refreshTray();
+  openSettingsWindow();
   // NOTE: watching does NOT auto-start. Given this app can lock your
   // keyboard and mouse, you opt in explicitly from the tray menu each
   // session rather than it silently arming itself on launch.
-});
+}
 
-app.on('window-all-closed', (e) => {
-  // Tray app — stay alive even with no windows open.
-  e.preventDefault();
-});
+if (typeof app.whenReady === 'function') {
+  app.whenReady().then(initializeApp);
+} else {
+  initializeApp();
+}
 
-app.on('before-quit', emergencyUnblock);
-app.on('will-quit', emergencyUnblock);
+if (typeof app.on === 'function') {
+  app.on('window-all-closed', (e) => {
+    // Tray app — stay alive even with no windows open.
+    e.preventDefault();
+  });
+
+  app.on('before-quit', emergencyUnblock);
+  app.on('will-quit', emergencyUnblock);
+}
 process.on('uncaughtException', (err) => {
   console.error('[zenski] Uncaught exception:', err);
   emergencyUnblock();
 });
 process.on('SIGINT', () => { emergencyUnblock(); process.exit(0); });
 process.on('SIGTERM', () => { emergencyUnblock(); process.exit(0); });
+
+module.exports = {
+  __testSanitizeSettings: sanitizeSettings
+};
