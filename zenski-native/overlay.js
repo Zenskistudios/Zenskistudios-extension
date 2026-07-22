@@ -11,7 +11,7 @@
 
   const CHARACTERS = {
     cat: {
-      label: 'Office Tom the Cat', type: 'pet', gif: 'gif/1.gif', accent: '#ffe08a',
+      label: 'Tom & Angela', type: 'pet', gif: 'gif/1.gif', accent: '#ffe08a',
       song: 'purrs a cheerful little tune',
       melody: [[523, 0.18], [659, 0.18], [784, 0.18], [659, 0.18], [523, 0.3]]
     },
