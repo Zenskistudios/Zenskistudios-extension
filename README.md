@@ -1,93 +1,161 @@
-# Zenski Screen Timeout — Native (Windows)
+# Zenski Screen Timeout
 
-A tray app that watches for idle time and forces a real rest break: a
-full-screen, animated 3D character on every monitor, with your keyboard
-and mouse optionally locked for the duration.
+A Windows tray app that watches for idle time and then takes over every
+monitor with an animated GIF character and a forced rest countdown. It can
+optionally lock your keyboard and mouse until the break is over.
 
-This is **not** a browser page — it's a real Windows background process
-using Electron's `powerMonitor` for idle detection and the Win32
-`BlockInput` API for input locking, so it can actually hold your session
-until the timer runs out, the way tools like Workrave or SafeEyes do.
+There is also a single-file **web demo** that shows the characters, audio and
+countdown in a browser. It cannot lock input (see "What the web demo can't do").
 
-## Setup
+---
 
-```bash
+## What's in this repo
+
+```
+zenski-native/
+├── main.js            Tray, idle detection, overlay windows, BlockInput (the only file that touches the OS)
+├── preload.js         Bridge for the overlay window (resume / close preview only)
+├── settingsPreload.js Bridge for the settings window (get / save / toggle / preview)
+├── overlay.html       Fullscreen overlay: GIF, name, countdown, Resume button
+├── overlay.js         CHARACTERS list, countdown logic, audio melodies
+├── settings.html      Settings window
+├── icon.ico           Tray icon
+├── gifs/              Character GIFs, referenced by filename in overlay.js
+└── package.json
+
+zenski-web-demo.html   Single self-contained browser demo (GIFs embedded)
+```
+
+## Requirements
+
+- Windows 10 or 11 (input blocking uses the Win32 `BlockInput` API)
+- Node.js 18 or newer
+
+## Run it
+
+From PowerShell, inside the `zenski-native` folder:
+
+```powershell
 npm install
 npm start
 ```
 
-`npm install` automatically copies `three.min.js` into `renderer/vendor/`
-via the `postinstall` script, so the overlay never needs internet access
-to render.
+Later runs only need `npm start`.
 
-The app runs from the system tray (bottom-right, may be under the "hidden
-icons" chevron). Right-click the tray icon for the menu, or use
-**Settings…** for the full panel.
+On launch, a Settings window opens and a paw icon appears in the system tray.
+Windows often hides new tray icons under the `^` arrow near the clock.
 
-## Important: input blocking is off by default in spirit, on by default in the settings file
+Watching never starts by itself. You press **Start Watching** (in the Settings
+window or the tray menu) each session, because this app can lock your input.
 
-`blockInput` defaults to `true` in `main.js`'s `DEFAULT_SETTINGS`, but
-**watching never auto-starts** — you have to click "Start Watching"
-yourself each session. That's deliberate: this app can lock your keyboard
-and mouse, so it never arms itself silently. Before you trust it, test
-with input blocking turned OFF (uncheck it in Settings) and confirm the
-overlay, countdown, and Resume button behave the way you expect. Only
-turn blocking on once you're comfortable.
+## How to try it without waiting two hours
 
-## Safety valves — read this before enabling input blocking
+1. Open the tray menu or Settings window and choose **Preview Character**. It
+   shows the overlay immediately, with no countdown and no input lock.
+2. To test the real forced break, set **Idle timeout** to 1 minute and
+   **Forced rest** to 1 minute, and leave **Block keyboard/mouse** unchecked.
+   Press **Start Watching** and leave the machine alone for a minute.
+3. Turn input blocking on only after steps 1 and 2 behave the way you expect.
 
-- **Ctrl+Alt+Del** is a Windows-reserved "secure attention sequence."
-  No user-mode process, including this one, can block it. It always
-  works and takes you to the secure desktop, where Task Manager is
-  available.
-- **Ctrl+Shift+Esc** (direct to Task Manager) is part of that same
-  reserved sequence and is also never blocked.
-- If you ever need to kill the app immediately: Task Manager →
-  find `electron.exe` (or however you've packaged/renamed it) → End Task.
-  This releases `BlockInput` instantly (Windows itself releases input
-  blocks held by a process that terminates).
-- The app also **never blocks longer than `forcedRestMinutes + 2
-  minutes`** — a failsafe timer in `main.js` force-releases everything
-  even if the overlay window's renderer crashes or never reports back.
-- `forcedRestMinutes` is hard-capped at 20 in `sanitizeSettings()` in
-  `main.js`. If you deliberately want longer forced breaks, that's a
-  one-line change, but the cap is there so a typo in the settings panel
-  (e.g. "500" instead of "5") can't lock you out for hours.
+## Settings
 
-## Project structure
+| Setting | Default | Notes |
+|---|---|---|
+| Idle timeout | 120 min | Real OS-level idle time via Electron `powerMonitor` |
+| Forced rest | 5 min | Hard-capped at 20 in `sanitizeSettings()` in `main.js` |
+| Block keyboard/mouse | on | Calls Win32 `BlockInput`. Test with it off first |
+| Audio | on | Short melodies generated with the Web Audio API |
+| Volume | 70 | 0 to 100 |
+| Character | cat | Any of the 8 characters |
 
+Settings are saved as JSON in Electron's `userData` folder
+(`%APPDATA%\zenski-screen-timeout-native\settings.json`).
+
+## Safety: read before turning input blocking on
+
+- **Ctrl+Alt+Del** and **Ctrl+Shift+Esc** are reserved by Windows. No normal
+  program can block them, so Task Manager is always available. If anything goes
+  wrong, end `electron.exe` there and Windows releases the input lock.
+- A **failsafe timer** releases everything `forcedRestMinutes + 2 minutes` after
+  the break starts, even if the overlay window crashes or never reports back.
+- Input is also unblocked on quit, on crash (`uncaughtException`), and on
+  SIGINT/SIGTERM.
+- Alt+F4 is ignored on overlay windows during a real forced break. Preview
+  windows close normally.
+- Some security software intercepts or blocks `BlockInput`. If that happens, the
+  overlay and countdown still run, but the input lock does not.
+
+## Change a character
+
+Each character is one entry in `CHARACTERS` in `overlay.js`:
+
+```js
+cat: {
+  label: '🐱 Whiskers the Cat', type: 'pet', gif: 'gifs/1.gif', accent: '#ffe08a',
+  song: 'purrs a cheerful little tune',
+  melody: [[523, 0.18], [659, 0.18], [784, 0.18], [659, 0.18], [523, 0.3]]
+},
 ```
-zenski-native/
-├── main.js              — tray, idle watching, BlockInput, window management
-├── preload.js            — bridge for the overlay window (resume/close only)
-├── settingsPreload.js    — bridge for the settings window (get/save/toggle/preview)
-├── overlay.html/.js      — the full-screen 3D character + countdown UI
-├── settings.html          — tray settings panel
-├── scripts/copy-three.js — postinstall: vendors three.js locally
-├── renderer/vendor/       — three.min.js lands here after npm install
-└── package.json
-```
 
-## Characters
+- `gif`: path to the file in `gifs/`. Swap the filename to change the image.
+- `type`: `'pet'` or `'horror'`. Horror adds scanlines and lightning flashes.
+- `accent`: hex color for the name text glow.
+- `melody`: list of `[frequencyHz, durationSeconds]` notes.
 
-Same 8 as the original VS Code extension, now real Three.js 3D models
-with per-character dance animations and the original Web Audio melodies:
-Whiskers (cat), Biscuit (dog), Bun-Bun (rabbit), Demogorgon, Vecna, Mind
-Flayer, Demo-dogs, and Eleven.
+To add a new character, add an entry in `overlay.js` **and** add its key and
+label to the `CHARACTERS` list inside the `<script>` in `settings.html`, so it
+shows up in the dropdown.
 
-## What this can't do
+The default GIF mapping is: cat 1, dog 9, rabbit 6, demogorgon 3, vecna 2,
+mindflayer 5, demodogs 4, eleven 8. `7.gif` and `10.gif` are unused.
 
-- Can't survive a reboot or auto-start on login unless you add that
-  yourself (e.g. a shortcut in `shell:startup`, or package with
-  `electron-builder` and register it as a startup app).
-- Can't block input on Linux/macOS — `BlockInput` is Windows-only. A
-  Linux build would need `XGrabKeyboard`/`XGrabPointer` (X11) or is
-  largely not possible under Wayland; macOS would need Accessibility +
-  Input Monitoring permissions and a very different approach.
-- Doesn't survive `BlockInput` being denied by some security software —
-  a few endpoint-protection suites intercept or block calls to it. If
-  that happens on your machine, the overlay still shows and the
-  countdown still runs, just without the actual input lock.
+## Web demo
+
+Open `zenski-web-demo.html` in any browser. No install or server is needed. It
+has a character gallery, a fullscreen preview with audio, and an idle timer
+that defaults to 2 minutes idle and 1 minute forced rest so you can see it
+trigger quickly.
+
+### What the web demo can't do
+
+- It cannot lock your keyboard or mouse. Browsers don't allow it.
+- Idle detection only sees mouse and keyboard activity inside that tab.
+- Its fullscreen takeover only covers the tab. You can always switch away or
+  close it.
+
+Only the native app can enforce a break at the OS level.
+
+## Known issues
+
+- **Tray icon missing.** If the icon doesn't show, check the `^` overflow area
+  first. The Settings window opening on launch is the real sign that startup
+  worked. `main.js` falls back to a base64 icon if `icon.ico` is missing, and
+  that fallback has been unreliable. Keep `icon.ico` next to `main.js`.
+- **No startup error dialog.** `app.whenReady().then(initializeApp)` has no
+  `.catch()`, so a failure during startup can be silent. Adding a `.catch()` that
+  shows `dialog.showErrorBox(...)` fixes this.
+- **Stale test.** The test in `tests/` still asserts that `overlay.html` loads
+  `./renderer/vendor/three.min.js`. The overlay now uses `<img id="char-gif">`
+  and no Three.js, so that assertion should check for the `char-gif` image tag
+  instead.
+- **GIFs not showing.** Confirm `overlay.html` contains `char-gif`, `overlay.js`
+  contains `gif:` paths, and the `gifs/` folder sits next to them.
+
+## Copyright note on the GIFs
+
+Some of the bundled GIFs show characters from Marvel and Dragon Ball. That is
+fine for private use on your own machine. Replace them with your own artwork or
+properly licensed images before publishing or sharing this project.
+
+## Contributing
+
+1. Fork the repo and create a branch.
+2. Add or change characters in `overlay.js` and `settings.html`.
+3. Test with **Preview Character** before testing the forced break.
+4. Keep input-blocking behavior and the failsafe timer intact in any change to
+   `main.js`.
+5. Open a pull request describing what you changed and how you tested it.
 
 ## License
 
+MIT. Use it, change it, and give credit.
